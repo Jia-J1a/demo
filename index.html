@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7fb">
+  <title>待办清单</title>
+  <script>
+    (() => {
+      let theme;
+      try {
+        theme = localStorage.getItem("simple-todo-theme");
+      } catch {}
+      if (theme !== "light" && theme !== "dark") {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      --page-bg: #f6f7fb;
+      --page-glow-a: #e8eaff;
+      --page-glow-b: #e4f3f1;
+      --text: #24283b;
+      --muted: #7279b9;
+      --subtle: #85899b;
+      --card-bg: rgba(255, 255, 255, .92);
+      --card-border: rgba(226, 228, 239, .8);
+      --separator: #f0f1f6;
+      --row-separator: #f1f2f6;
+      --input-bg: #fafaff;
+      --input-border: #e8e9f1;
+      --placeholder: #777c8f;
+      --accent: #666ed0;
+      --accent-hover: #565ebd;
+      --add-button-bg: #666ed0;
+      --add-button-hover: #565ebd;
+      --accent-text: #626ac5;
+      --input-focus-border: #858be0;
+      --accent-soft: #f0f1fc;
+      --accent-soft-hover: #e6e8fa;
+      --task-text: #42465a;
+      --completed-text: #85899a;
+      --disabled-text: #666b7b;
+      --delete-text: #707588;
+      --danger: #d35c68;
+      --danger-soft: #fff0f0;
+      --priority-high: #df6873;
+      --priority-medium: #e6b84e;
+      --priority-low: #777c8c;
+      --shadow: 0 18px 55px rgba(48, 55, 94, .09);
+      --focus-ring: rgba(102, 110, 208, .32);
+      --input-focus-ring: rgba(133, 139, 224, .16);
+      color: var(--text);
+      background: var(--page-bg);
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --page-bg: #171923;
+      --page-glow-a: #282c48;
+      --page-glow-b: #1c3738;
+      --text: #edf0fa;
+      --muted: #b7bcf5;
+      --subtle: #c1c6d6;
+      --card-bg: rgba(35, 38, 52, .97);
+      --card-border: #41465c;
+      --separator: #393e52;
+      --row-separator: #373c50;
+      --input-bg: #1d202d;
+      --input-border: #4a5067;
+      --placeholder: #a9afc2;
+      --accent: #9299ff;
+      --accent-hover: #a8adff;
+      --add-button-bg: #555fc8;
+      --add-button-hover: #646fdc;
+      --accent-text: #c0c4ff;
+      --input-focus-border: #9299ff;
+      --accent-soft: #353955;
+      --accent-soft-hover: #414668;
+      --task-text: #e4e7f2;
+      --completed-text: #b6bbca;
+      --disabled-text: #a6acbd;
+      --delete-text: #b9bfd0;
+      --danger: #ff9aa3;
+      --danger-soft: #493039;
+      --priority-high: #ff7c89;
+      --priority-medium: #ffd166;
+      --priority-low: #c0c5d3;
+      --shadow: 0 18px 55px rgba(0, 0, 0, .28);
+      --focus-ring: rgba(160, 168, 255, .55);
+      --input-focus-ring: rgba(160, 168, 255, .24);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      padding: 64px 20px;
+      background:
+        radial-gradient(ellipse at 12% 8%, var(--page-glow-a) 0, transparent 34%),
+        radial-gradient(ellipse at 92% 84%, var(--page-glow-b) 0, transparent 30%),
+        var(--page-bg);
+    }
+
+    button, input { font: inherit; }
+
+    .app {
+      width: min(100%, 620px);
+      margin: 0 auto;
+    }
+
+    .heading { margin: 0 0 26px; }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .eyebrow {
+      margin: 0 0 9px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .16em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 6vw, 40px);
+      letter-spacing: -.04em;
+    }
+
+    .theme-toggle {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid var(--input-border);
+      border-radius: 50%;
+      background: var(--card-bg);
+      color: var(--text);
+      font-size: 20px;
+      cursor: pointer;
+      transition: background .2s, border-color .2s, transform .2s;
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .theme-toggle:active { transform: scale(.95); }
+    .theme-icon-sun { display: none; }
+    :root[data-theme="dark"] .theme-icon-moon { display: none; }
+    :root[data-theme="dark"] .theme-icon-sun { display: inline; }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: var(--subtle);
+      font-size: 15px;
+    }
+
+    .panel {
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      background: var(--card-bg);
+      box-shadow: var(--shadow);
+    }
+
+    .add-form {
+      display: flex;
+      gap: 10px;
+      padding: 22px;
+      border-bottom: 1px solid var(--separator);
+    }
+
+    .add-form input {
+      min-width: 0;
+      flex: 1;
+      height: 48px;
+      padding: 0 15px;
+      border: 1px solid var(--input-border);
+      border-radius: 12px;
+      outline: none;
+      background: var(--input-bg);
+      color: inherit;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .add-form input::placeholder { color: var(--placeholder); opacity: 1; }
+    .add-form input:focus {
+      border-color: var(--input-focus-border);
+      box-shadow: 0 0 0 3px var(--input-focus-ring);
+    }
+
+    .add-button {
+      min-width: 92px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--add-button-bg);
+      color: white;
+      font-weight: 650;
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+    }
+
+    .add-button:hover { background: var(--add-button-hover); }
+    .add-button:active { transform: scale(.97); }
+
+    .list { margin: 0; padding: 7px 22px; list-style: none; }
+
+    .task {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      min-height: 61px;
+      border-bottom: 1px solid var(--row-separator);
+    }
+
+    .task:last-child { border-bottom: 0; }
+
+    .task input[type="checkbox"] {
+      width: 19px;
+      height: 19px;
+      flex: 0 0 auto;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .priority-button {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      flex: 0 0 auto;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .priority-button:hover {     background: var(--accent-soft); }
+
+    .priority-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+
+    .priority-high .priority-dot { background: var(--priority-high); }
+    .priority-medium .priority-dot { background: var(--priority-medium); }
+    .priority-low .priority-dot { background: var(--priority-low); }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      padding: 12px 22px 4px;
+    }
+
+    .filter-button {
+      padding: 7px 12px;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--subtle);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .filter-button:hover { background: var(--accent-soft); }
+    .filter-button.active {
+      background: var(--accent-soft);
+      color: var(--accent-text);
+      font-weight: 650;
+    }
+
+    .task-text {
+      flex: 1;
+      overflow-wrap: anywhere;
+      color: var(--task-text);
+      line-height: 1.5;
+      cursor: text;
+    }
+
+    .task-content {
+      display: flex;
+      flex: 1;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .edit-input {
+      min-width: 0;
+      flex: 1;
+      height: 38px;
+      padding: 0 10px;
+      border: 1px solid var(--accent);
+      border-radius: 9px;
+      outline: none;
+      background: var(--input-bg);
+      color: inherit;
+      box-shadow: 0 0 0 3px var(--input-focus-ring);
+    }
+
+    .edit-actions {
+      display: flex;
+      flex: 0 0 auto;
+      gap: 4px;
+    }
+
+    .edit-button {
+      padding: 6px 8px;
+      border: 0;
+      border-radius: 7px;
+      background: var(--accent-soft);
+      color: var(--accent-text);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .edit-button:hover { background: var(--accent-soft-hover); }
+    .edit-button.cancel { background: transparent; color: var(--subtle); }
+    .edit-button.cancel:hover { background: var(--separator); }
+
+    .clear-completed {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--subtle);
+      font-size: inherit;
+      cursor: pointer;
+    }
+
+    .clear-completed:hover:not(:disabled) { color: var(--danger); }
+    .clear-completed:disabled { color: var(--disabled-text); cursor: not-allowed; }
+
+    .footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      white-space: nowrap;
+    }
+
+    .task.completed .task-text {
+      color: var(--completed-text);
+      text-decoration: line-through;
+    }
+
+    .delete-button {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--delete-text);
+      font-size: 20px;
+      cursor: pointer;
+      transition: background .2s, color .2s;
+    }
+
+    .delete-button:hover { background: var(--danger-soft); color: var(--danger); }
+
+    .empty {
+      padding: 35px 20px 39px;
+      color: var(--subtle);
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .empty-icon {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 27px;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 15px 22px;
+      border-top: 1px solid var(--separator);
+      color: var(--subtle);
+      font-size: 13px;
+    }
+
+    .backup-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 12px 22px 15px;
+      border-top: 1px solid var(--separator);
+    }
+
+    .backup-button {
+      padding: 7px 12px;
+      border: 1px solid var(--input-border);
+      border-radius: 9px;
+      background: var(--input-bg);
+      color: var(--accent-text);
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+
+    .backup-button:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .footer strong { color: var(--accent-text); font-weight: 650; }
+
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 40px 15px; }
+      .add-form { padding: 16px; }
+      .list { padding-right: 16px; padding-left: 16px; }
+      .filters { padding-right: 16px; padding-left: 16px; }
+      .footer { padding-right: 16px; padding-left: 16px; }
+      .backup-actions { padding-right: 16px; padding-left: 16px; }
+      .add-button { min-width: 76px; }
+      .footer-actions { gap: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="heading">
+      <p class="eyebrow">把每一步，都安排好</p>
+      <div class="title-row">
+        <h1>待办清单</h1>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" aria-label="切换到深色模式" title="切换到深色模式">
+          <span class="theme-icon-moon" aria-hidden="true">☾</span>
+          <span class="theme-icon-sun" aria-hidden="true">☼</span>
+        </button>
+      </div>
+      <p class="subtitle">写下要做的事，专注完成当下。</p>
+    </header>
+
+    <section class="panel" aria-label="待办事项">
+      <form class="add-form" id="add-form">
+        <input id="task-input" type="text" placeholder="添加一件待办事项…" maxlength="200" autocomplete="off" aria-label="待办事项内容">
+        <button class="add-button" type="submit">添加任务</button>
+      </form>
+      <nav class="filters" aria-label="筛选待办事项">
+        <button class="filter-button active" type="button" data-filter="all" aria-pressed="true">全部</button>
+        <button class="filter-button" type="button" data-filter="active" aria-pressed="false">未完成</button>
+        <button class="filter-button" type="button" data-filter="completed" aria-pressed="false">已完成</button>
+      </nav>
+      <ul class="list" id="task-list" aria-live="polite"></ul>
+      <div class="empty" id="empty-state" hidden>
+        <span class="empty-icon" aria-hidden="true">✦</span>
+        <span id="empty-message">暂无待办，先添加一件要做的事吧</span>
+      </div>
+      <footer class="footer">
+        <span>待完成 <strong id="remaining-count">0</strong> 项</span>
+        <div class="footer-actions">
+          <button class="clear-completed" id="clear-completed" type="button" disabled>全部删除已完成</button>
+          <span>共 <strong id="total-count">0</strong> 项任务</span>
+        </div>
+      </footer>
+      <div class="backup-actions">
+        <button class="backup-button" id="export-tasks" type="button">导出</button>
+        <button class="backup-button" id="import-tasks" type="button">导入</button>
+        <input id="import-file" type="file" accept=".json,application/json" hidden>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "simple-todo-list";
+    const form = document.querySelector("#add-form");
+    const input = document.querySelector("#task-input");
+    const list = document.querySelector("#task-list");
+    const emptyState = document.querySelector("#empty-state");
+    const remainingCount = document.querySelector("#remaining-count");
+    const totalCount = document.querySelector("#total-count");
+    const clearCompletedButton = document.querySelector("#clear-completed");
+    const emptyMessage = document.querySelector("#empty-message");
+    const exportButton = document.querySelector("#export-tasks");
+    const importButton = document.querySelector("#import-tasks");
+    const importFileInput = document.querySelector("#import-file");
+    const themeToggle = document.querySelector("#theme-toggle");
+    let editingTaskId = null;
+    let activeFilter = "all";
+
+    function updateThemeToggle() {
+      const isDark = document.documentElement.dataset.theme === "dark";
+      const label = isDark ? "切换到浅色模式" : "切换到深色模式";
+      themeToggle.setAttribute("aria-label", label);
+      themeToggle.title = label;
+      themeToggle.setAttribute("aria-pressed", String(isDark));
+    }
+
+    function loadTasks() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        return Array.isArray(saved)
+          ? saved
+              .filter(task => task && typeof task.id === "string" && typeof task.text === "string" && typeof task.completed === "boolean")
+              .map(task => ({
+                ...task,
+                priority: ["high", "medium", "low"].includes(task.priority) ? task.priority : "medium"
+              }))
+          : [];
+      } catch {
+        return [];
+      }
+    }
+
+    let tasks = loadTasks();
+
+    function saveTasks() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    }
+
+    function validateImportedTasks(value) {
+      if (!Array.isArray(value)) return null;
+
+      const ids = new Set();
+      const importedTasks = [];
+      for (const task of value) {
+        if (
+          !task ||
+          typeof task.id !== "string" ||
+          !task.id.trim() ||
+          ids.has(task.id) ||
+          typeof task.text !== "string" ||
+          !task.text.trim() ||
+          task.text.length > 200 ||
+          typeof task.completed !== "boolean" ||
+          (task.priority !== undefined && !["high", "medium", "low"].includes(task.priority))
+        ) {
+          return null;
+        }
+
+        ids.add(task.id);
+        importedTasks.push({
+          id: task.id,
+          text: task.text.trim(),
+          completed: task.completed,
+          priority: task.priority || "medium"
+        });
+      }
+
+      return importedTasks;
+    }
+
+    function render() {
+      list.replaceChildren();
+
+      const visibleTasks = tasks.filter(task =>
+        activeFilter === "all" ||
+        (activeFilter === "active" && !task.completed) ||
+        (activeFilter === "completed" && task.completed)
+      );
+
+      for (const task of visibleTasks) {
+        const item = document.createElement("li");
+        item.className = task.completed ? "task completed" : "task";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = task.completed;
+        checkbox.setAttribute("aria-label", task.completed ? `标记“${task.text}”为未完成` : `完成“${task.text}”`);
+        checkbox.addEventListener("change", () => {
+          task.completed = checkbox.checked;
+          saveTasks();
+          render();
+        });
+
+        const priorityButton = document.createElement("button");
+        priorityButton.className = `priority-button priority-${task.priority}`;
+        priorityButton.type = "button";
+        const nextPriority = { high: "medium", medium: "low", low: "high" }[task.priority];
+        const priorityLabels = { high: "高", medium: "中", low: "低" };
+        priorityButton.setAttribute("aria-label", `“${task.text}”优先级：${priorityLabels[task.priority]}，点击切换为${priorityLabels[nextPriority]}`);
+        priorityButton.title = `优先级：${priorityLabels[task.priority]}（点击切换）`;
+        const priorityDot = document.createElement("span");
+        priorityDot.className = "priority-dot";
+        priorityDot.setAttribute("aria-hidden", "true");
+        priorityButton.append(priorityDot);
+        priorityButton.addEventListener("click", () => {
+          task.priority = nextPriority;
+          saveTasks();
+          render();
+        });
+
+        const content = document.createElement("div");
+        content.className = "task-content";
+
+        if (editingTaskId === task.id) {
+          const editInput = document.createElement("input");
+          editInput.className = "edit-input";
+          editInput.type = "text";
+          editInput.maxLength = 200;
+          editInput.value = task.text;
+          editInput.setAttribute("aria-label", `编辑任务“${task.text}”`);
+          editInput.addEventListener("keydown", event => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commitEdit(task, editInput);
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              cancelEdit();
+            }
+          });
+
+          const editActions = document.createElement("div");
+          editActions.className = "edit-actions";
+
+          const saveButton = document.createElement("button");
+          saveButton.className = "edit-button";
+          saveButton.type = "button";
+          saveButton.textContent = "保存";
+          saveButton.addEventListener("click", () => commitEdit(task, editInput));
+
+          const cancelButton = document.createElement("button");
+          cancelButton.className = "edit-button cancel";
+          cancelButton.type = "button";
+          cancelButton.textContent = "取消";
+          cancelButton.addEventListener("click", cancelEdit);
+
+          editActions.append(saveButton, cancelButton);
+          content.append(editInput, editActions);
+          requestAnimationFrame(() => {
+            editInput.focus();
+            editInput.select();
+          });
+        } else {
+          const text = document.createElement("span");
+          text.className = "task-text";
+          text.textContent = task.text;
+          text.tabIndex = 0;
+          text.setAttribute("aria-label", `任务：${task.text}，双击或按 Enter 编辑`);
+          text.addEventListener("dblclick", () => startEdit(task.id));
+          text.addEventListener("keydown", event => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              startEdit(task.id);
+            }
+          });
+          content.append(text);
+        }
+
+        const removeButton = document.createElement("button");
+        removeButton.className = "delete-button";
+        removeButton.type = "button";
+        removeButton.textContent = "×";
+        removeButton.setAttribute("aria-label", `删除“${task.text}”`);
+        removeButton.addEventListener("click", () => {
+          tasks = tasks.filter(entry => entry.id !== task.id);
+          saveTasks();
+          render();
+        });
+
+        item.append(checkbox, priorityButton, content, removeButton);
+        list.append(item);
+      }
+
+      const remaining = tasks.filter(task => !task.completed).length;
+      const completed = tasks.length - remaining;
+      remainingCount.textContent = remaining;
+      totalCount.textContent = tasks.length;
+      emptyState.hidden = visibleTasks.length > 0;
+      emptyMessage.textContent = tasks.length === 0
+        ? "暂无待办，先添加一件要做的事吧"
+        : "当前筛选下没有任务";
+      clearCompletedButton.disabled = completed === 0;
+
+      document.querySelectorAll(".filter-button").forEach(button => {
+        const isActive = button.dataset.filter === activeFilter;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+    }
+
+    function startEdit(taskId) {
+      editingTaskId = taskId;
+      render();
+    }
+
+    function cancelEdit() {
+      editingTaskId = null;
+      render();
+    }
+
+    function commitEdit(task, editInput) {
+      const text = editInput.value.trim();
+      editInput.setCustomValidity("");
+      if (!text) {
+        editInput.setCustomValidity("任务内容不能为空");
+        editInput.reportValidity();
+        editInput.focus();
+        return;
+      }
+
+      task.text = text;
+      editingTaskId = null;
+      saveTasks();
+      render();
+    }
+
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text) {
+        input.focus();
+        return;
+      }
+
+      tasks.unshift({
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        text,
+        completed: false,
+        priority: "medium"
+      });
+      saveTasks();
+      render();
+      form.reset();
+      input.focus();
+    });
+
+    clearCompletedButton.addEventListener("click", () => {
+      tasks = tasks.filter(task => !task.completed);
+      editingTaskId = null;
+      saveTasks();
+      render();
+    });
+
+    document.querySelectorAll(".filter-button").forEach(button => {
+      button.addEventListener("click", () => {
+        activeFilter = button.dataset.filter;
+        render();
+      });
+    });
+
+    exportButton.addEventListener("click", () => {
+      const date = new Date();
+      const dateString = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0")
+      ].join("-");
+      const backup = new Blob([JSON.stringify(tasks, null, 2)], { type: "application/json" });
+      const downloadUrl = URL.createObjectURL(backup);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = downloadUrl;
+      downloadLink.download = `todo-备份-${dateString}.json`;
+      downloadLink.click();
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+    });
+
+    importButton.addEventListener("click", () => {
+      if (window.confirm("导入备份会替换当前所有任务，确定继续吗？")) {
+        importFileInput.click();
+      }
+    });
+
+    importFileInput.addEventListener("change", async () => {
+      const file = importFileInput.files[0];
+      if (!file) return;
+
+      let fileContents;
+      try {
+        fileContents = JSON.parse(await file.text());
+      } catch {
+        window.alert("导入失败：无法读取文件或解析 JSON。");
+        importFileInput.value = "";
+        return;
+      }
+
+      const importedTasks = validateImportedTasks(fileContents);
+      if (!importedTasks) {
+        window.alert("导入失败：文件内容不是有效的待办清单备份。");
+        importFileInput.value = "";
+        return;
+      }
+
+      tasks = importedTasks;
+      editingTaskId = null;
+      saveTasks();
+      render();
+      importFileInput.value = "";
+    });
+
+    themeToggle.addEventListener("click", () => {
+      const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      document.documentElement.dataset.theme = nextTheme;
+      try {
+        localStorage.setItem("simple-todo-theme", nextTheme);
+      } catch {
+        window.alert("主题已切换，但无法保存偏好设置。");
+      }
+      updateThemeToggle();
+    });
+
+    updateThemeToggle();
+    render();
+  </script>
+</body>
+</html>
